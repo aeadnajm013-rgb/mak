@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ckb" dir="rtl">
+<head>
+<meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>زانیاری کارت</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap">
+<style>
+:root{
+  --bg:#F2F5F6; --card:#FFFFFF; --line:#DDE5E8; --ink:#14262E; --muted:#61747C;
+  --accent:#0E6B7A; --ok:#1F7A45; --ok-soft:#E3F3E9; --bad:#B3261E; --bad-soft:#FBE4E2;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0F1A1E; --card:#16252B; --line:#29404A; --ink:#E4EEF1; --muted:#93A9B1;
+  --accent:#4FB8C7; --ok:#5CC98A; --ok-soft:#14352A; --bad:#F28B82; --bad-soft:#3D1D1B; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{min-height:100vh;background:var(--bg);color:var(--ink);font-family:"Vazirmatn",Tahoma,sans-serif;line-height:1.7;
+  display:grid;place-items:start center;padding:max(24px,env(safe-area-inset-top)) 16px 32px}
+.card{width:100%;max-width:440px;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+.head b{font-size:1.05rem}
+.qr{font-family:ui-monospace,Menlo,monospace;direction:ltr;font-size:.8rem;color:var(--muted);background:var(--bg);border-radius:6px;padding:2px 8px}
+.body{padding:20px;display:grid;gap:16px}
+.status{border-radius:10px;padding:12px 14px;font-weight:800;display:flex;gap:10px;align-items:center}
+.status.ok{background:var(--ok-soft);color:var(--ok)}
+.status.bad{background:var(--bad-soft);color:var(--bad)}
+dl{margin:0;display:grid;gap:0}
+.item{display:grid;gap:2px;padding:12px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+dt{font-size:.82rem;color:var(--muted)}
+dd{margin:0;font-size:1.1rem;font-weight:600;overflow-wrap:anywhere}
+.loader{display:grid;justify-items:center;gap:12px;padding:30px 0;color:var(--muted)}
+.spin{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:s 0.8s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+button{font:inherit;font-weight:600;padding:10px 18px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:var(--card);cursor:pointer}
+.foot{padding:12px 20px;border-top:1px solid var(--line);font-size:.78rem;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="head"><b>زانیاری کارت</b></div>
+  <div class="body" id="box">
+    <div class="loader"><div class="spin"></div>چاوەڕێ بکە…</div>
+  </div>
+  <div class="foot" id="time"></div>
+</main>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbwXT21qj1UyxWQ_Yf80Ae3iNXEgUTXepU4d0ANSO8FDhhMAd8wZ4PPz3sI2OetofLIbDA/exec';
+
+const code = (new URLSearchParams(location.search).get('c') || '').trim();
+const box = document.getElementById('box');
+
+function esc(s){ return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function fail(msg){
+  box.innerHTML = '<div class="status bad">❌ ' + msg + '</div>' +
+                  '';
+}
+
+function load(){
+  if (!code) { fail('ئەم QR کۆدە دروست نییە'); return; }
+  history.replaceState(null, '', location.pathname);   // کۆدەکە لە لینکی سەرەوە دەسڕێتەوە
+  fetch(API + '?action=scan&c=' + encodeURIComponent(code))
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) {
+        fail(d.error === 'empty' ? 'هیچ زانیارییەکی نوێ لە شیتەکەدا نەماوە' : 'ئەم QR کۆدە دروست نییە');
+        return;
+      }
+      let html = '<div class="status ok">✅ ' + (d.status === 'new' ? 'سکان کرا' : 'زانیاری ئەم کارتە') + '</div><dl>';
+      for (let c = 0; c < 5; c++) {
+        if (d.values[c] === '' || d.values[c] == null) continue;
+        let v = d.values[c];
+        if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v)) v = v.slice(0, 10);   // بەروار
+        html += '<div class="item"><dt>' + esc(d.headers[c]) + '</dt><dd>' + esc(v) + '</dd></div>';
+      }
+      box.innerHTML = html + '</dl>';
+      const t = new Date();
+      document.getElementById('time').textContent = t.toLocaleDateString('en-GB') + ' — ' + t.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    })
+    .catch(() => fail('پەیوەندی نەکرا. ئینتەرنێت بپشکنە.'));
+}
+load();
+</script>
+</body>
+</html>
